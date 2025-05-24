@@ -1,0 +1,147 @@
+This backend implements the following features:
+
+LinkedIn OAuth Login via OpenID Connect
+
+Protected /user endpoint returning basic profile information (name, email)
+
+Protected /skills endpoint (stubbed) returning a sample skills array
+
+JWT-based authentication using Firebase Custom Tokens and ID Tokens
+
+Tools to Set Up
+
+Node.js (v16+)
+
+npm or yarn
+
+A Firebase project with:
+
+Admin SDK service account key (serviceAccountKey.json)
+
+A Web app registered (to obtain Web API Key)
+
+A LinkedIn Developer app with Sign In with LinkedIn enabled
+
+Environment Variables
+
+Create a .env file in the project root:
+
+# Server
+PORT=3000
+
+# LinkedIn OIDC (OpenID Connect)
+LINKEDIN_CLIENT_ID=your_linkedin_client_id
+LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
+LINKEDIN_REDIRECT_URI=http://localhost:3000/auth/linkedin/callback
+
+# Firebase Admin
+FIREBASE_SERVICE_ACCOUNT=./serviceAccountKey.json
+
+# Firebase Web API Key (for token exchange)
+FIREBASE_WEB_API_KEY=your_firebase_web_api_key
+
+Setup & Run
+
+Install dependencies
+
+npm install
+
+Place your Firebase service account JSON at the path specified in .env
+
+Start the server
+
+npm run dev
+
+The API will be available at http://localhost:3000
+
+API Endpoints
+
+All protected routes require a valid Firebase ID Token in the Authorization header:
+
+Authorization: Bearer <ID_TOKEN>
+
+1. GET /auth/linkedin
+
+Redirects you to LinkedIn’s OIDC consent screen.
+
+Example (browser):
+
+open http://localhost:3000/auth/linkedin
+
+2. GET /auth/linkedin/callback?code=<code>&state=<state>
+
+LinkedIn redirects back here after consent. Returns JSON:
+
+{
+  "accessToken": "...",
+  "idToken": "...",
+  "firebaseToken": "...",
+  "profile": {
+    "id": "...","firstName": "...","lastName": "...","email": "..."
+  }
+}
+
+You must exchange firebaseToken for an ID token before calling protected routes (see below).
+
+3. Exchange Firebase Custom Token for ID Token
+
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<FIREBASE_CUSTOM_TOKEN>","returnSecureToken":true}' \
+  "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=<FIREBASE_WEB_API_KEY>"
+
+Response:
+
+{
+  "idToken": "<FIREBASE_ID_TOKEN>",
+  "refreshToken": "...",
+  "expiresIn": "3600",
+  "localId": "..."
+}
+
+4. GET /user
+
+Returns the authenticated user’s profile stored in Firestore.
+
+Example (cURL):
+
+curl -i \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>" \
+  http://localhost:3000/user
+
+Response:
+
+{
+  "id": "...",
+  "firstName": "...",
+  "lastName": "...",
+  "email": "..."
+}
+
+5. GET /skills
+
+Scrapes and returns top skills and years of experience (stubbed until real scraper is implemented).
+
+Example (cURL):
+
+curl -i \
+  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>" \
+  http://localhost:3000/skills
+
+Stub Response:
+
+{
+  "skills": [
+    { "skill": "JavaScript", "years": 5 },
+    { "skill": "Node.js", "years": 4 },
+    { "skill": "Web Scraping", "years": 2 }
+  ]
+}
+
+Next Steps
+
+Implement real scraping logic in src/services/scraper.js using Puppeteer
+
+Add error handling and rate limiting middleware
+
+Write tests for OAuth and scraping flows
